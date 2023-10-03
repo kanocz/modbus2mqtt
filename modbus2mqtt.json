@@ -1,0 +1,245 @@
+{
+    "mqtt": {
+        "lwt_topic": "/recu/ltw",
+        "state_topic": "/recu/state/",
+        "set_topic": "/recu/set/",
+        "broker": "192.168.1.9:1883",
+        "username": "recuvent",
+        "password": "somePassword"
+    },
+    "registers": [
+        {
+            "reg": 40000,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bit",
+                    "position": 0,
+                    "name": "power"
+                },
+                {
+                    "writable": true,
+                    "type": "bit",
+                    "position": 1,
+                    "name": "aqs_auto"
+                },
+                {
+                    "writable": true,
+                    "type": "bit",
+                    "position": 2,
+                    "name": "bypass"
+                },
+                {
+                    "writable": false,
+                    "type": "bit",
+                    "position": 3,
+                    "name": "bypass_auto_off"
+                },
+                {
+                    "writable": true,
+                    "type": "bit",
+                    "position": 4,
+                    "name": "boost"
+                },
+                {
+                    "writable": true,
+                    "type": "bit",
+                    "position": 5,
+                    "name": "keyboard_lock"
+                },
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 6,
+                    "width": 4,
+                    "name": "vent_level"
+                },
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 10,
+                    "width": 6,
+                    "name": "temp_level"
+                }
+            ]
+        },
+        {
+            "reg": 30016,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 14,
+                    "name": "status_temp_room",
+                    "x10": true
+                },
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 14,
+                    "width": 2,
+                    "name": "status_temp_room_sensor",
+                    "values": {
+                        "0": "ok",
+                        "1": "",
+                        "2": ""
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 30017,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 14,
+                    "name": "status_temp_exhaust",
+                    "x10": true
+                },
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 14,
+                    "width": 2,
+                    "name": "status_temp_exhaust_sensor",
+                    "values": {
+                        "0": "ok",
+                        "1": "",
+                        "2": ""
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 30033,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bit",
+                    "position": 0,
+                    "name": "rele_preheat"
+                },
+                {
+                    "type": "bit",
+                    "position": 1,
+                    "name": "rele_postheat"
+                }
+            ]
+        },
+        {
+            "reg": 30015,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "status_air_flow_m3"
+                }
+            ]
+        },
+        {
+            "reg": 30001,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 4,
+                    "name": "ui_state",
+                    "values": {
+                        "0": "UI_STATE_OFF",
+                        "1": "UI_STATE_OFF_COOLING",
+                        "2": "UI_STATE_FAN1_ERROR",
+                        "3": "UI_STATE_FAN2_ERROR",
+                        "4": "UI_STATE_T_ROOM_ERROR",
+                        "5": "UI_STATE_T_EXHAUST_ERROR",
+                        "6": "UI_STATE_ACTIVE_LOCK",
+                        "7": "UI_STATE_ACT_DEACT_LOCK",
+                        "8": "UI_STATE_SHOW_SETTINGS",
+                        "9": "UI_STATE_SET_FAN",
+                        "10": "UI_STATE_SET_HEAT",
+                        "11": "UI_STATE_RUN",
+                        "12": "UI_STATE_SERVICE_MENU",
+                        "13": "UI_STATE_CUSTOMER_MENU"
+                    }
+                },
+                {
+                    "type": "bits_const",
+                    "position": 8,
+                    "width": 4,
+                    "name": "fan_state",
+                    "values": {
+                        "0": "FAN_STATE_OFF",
+                        "1": "FAN_STATE_OFF_COOL",
+                        "2": "FAN_STATE_FAN1_ERROR",
+                        "3": "FAN_STATE_FAN2_ERROR",
+                        "4": "FAN_STATE_ACTIVE",
+                        "5": "FAN_STATE_ACTIVE_ANTIFREEZE",
+                        "6": "FAN_STATE_INACTIVE",
+                        "7": "FAN_STATE_INACTIVE_ANTIFREEZE",
+                        "8": "FAN_STATE_SUMMER_MODE",
+                        "9": "FAN_STATE_BOOST_MODE"
+                    }
+                }
+            ]
+        },
+
+        {
+            "reg": 30002,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 4,
+                    "name": "preheat_state",
+                    "values": {
+                        "0": "PREHEAT_STATE_OFF",
+                        "1": "PREHEAT_STATE_OFF_COOL,",
+                        "2": "PREHEAT_STATE_T_ROOM_ERROR",
+                        "3": "PREHEAT_STATE_T_EXHAUST_ERROR",
+                        "4": "PREHEAT_STATE_ACTIVE_LOW",
+                        "5": "PREHEAT_STATE_ACTIVE_MED1",
+                        "6": "PREHEAT_STATE_ACTIVE_MED2",
+                        "7": "PREHEAT_STATE_ACTIVE_HIGH",
+                        "8": "PREHEAT_STATE_INACTIVE",
+                        "9": "PREHEAT_STATE_INACTIVE_FAN_OFF",
+                        "10": "PREHEAT_STATE_COOL",
+                        "11": "PREHEAT_STATE_COOL_TO_MED2",
+                        "12": "PREHEAT_STATE_COOL_TO_INACTIVE"
+                    }
+                },
+                {
+                    "type": "bits_const",
+                    "position": 12,
+                    "width": 4,
+                    "name": "fan_balance",
+                    "values": {
+                        "0": "balanced",
+                        "1": "0.5V",
+                        "2": "1V",
+                        "3": "1.5V",
+                        "4": "2V",
+                        "5": "2.5V",
+                        "6": "3V",
+                        "7": "3.5V",
+                        "8": "4V",
+                        "9": "4.5V",
+                        "10": "5V",
+                        "11": "5.5V",
+                        "12": "6V",
+                        "13": "6.5V",
+                        "14": "7V",
+                        "15": "7.5V"
+                    }
+                }
+            ]
+        }
+
+    ]
+}
