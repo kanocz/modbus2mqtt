@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +42,27 @@ type modbusAPI struct {
 	oldValues_bool map[string]bool
 }
 
+func normalizeName(name string) string {
+	result := strings.ReplaceAll(strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' {
+			return r
+		}
+		if r >= 'A' && r <= 'Z' {
+			return r + 32
+		}
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return '_'
+	}, name), "__", "_")
+
+	for strings.Contains(result, "__") {
+		result = strings.ReplaceAll(result, "__", "_")
+	}
+	return result
+
+}
+
 func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan time.Duration, CBU16 cbU16, CBStr cbStr, CBBool cbBool) (*modbusAPI, error) {
 
 	client, err := modbus.NewClient(&modbus.ClientConfiguration{
@@ -70,26 +92,42 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 	}
 
 	for _, reg := range mapi.registers {
-		if reg.Type != "hold" {
+		if reg.Type != "hold" && reg.Type != "coils" {
 			continue
 		}
-		for _, data := range reg.Data {
-			var RValues map[string]uint16
+		if reg.Type == "hold" {
+			for _, data := range reg.Data {
+				var RValues map[string]uint16
 
-			if len(data.Values) > 0 {
-				RValues = map[string]uint16{}
+				if len(data.Values) > 0 {
+					RValues = map[string]uint16{}
+					for k, v := range data.Values {
+						RValues[v] = k
+					}
+				}
+
+				mapi.writables[data.Name] = modbusWritable{
+					Type:    data.Type,
+					Pos:     data.Pos,
+					Width:   data.Width,
+					Reg:     reg.Reg,
+					RValues: RValues,
+				}
+			}
+		} else { // coils
+			for _, data := range reg.Data {
+				if !data.Writable {
+					continue
+				}
 				for k, v := range data.Values {
-					RValues[v] = k
+					mapi.writables[normalizeName(v)] = modbusWritable{
+						Type: "coil",
+						Reg:  k,
+					}
+
 				}
 			}
 
-			mapi.writables[data.Name] = modbusWritable{
-				Type:    data.Type,
-				Pos:     data.Pos,
-				Width:   data.Width,
-				Reg:     reg.Reg,
-				RValues: RValues,
-			}
 		}
 	}
 
@@ -118,9 +156,32 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 			return err
 		}
 		return mapi.SetBits(name, uint16(v))
+	case "coil":
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		return mapi.SetCoil(name, v)
 	}
 
 	return errWritableInvalidType
+}
+
+func (mapi *modbusAPI) SetCoil(name string, value bool) error {
+	mapi.mu.Lock()
+	defer mapi.mu.Unlock()
+
+	r, ex := mapi.writables[name]
+	if !ex {
+		return errWritableNotFound
+	}
+
+	err := mapi.client.WriteCoil(r.Reg, value)
+	if err != nil {
+		log.Panic("unable to write modbus coil: ", err)
+	}
+
+	return nil
 }
 
 func (mapi *modbusAPI) SetBit(name string, value bool) error {
@@ -169,6 +230,14 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 
 	if r.Type != "bits" {
 		return errWritableInvalidType
+	}
+
+	if r.Pos == 0 && r.Width == 16 {
+		err := mapi.client.WriteRegisters(r.Reg, []uint16{value})
+		if err != nil {
+			log.Panic("unable to write modbus reg: ", err)
+		}
+		return nil
 	}
 
 	reg16, err := mapi.client.ReadRegister(r.Reg, modbus.HOLDING_REGISTER)
@@ -257,6 +326,20 @@ func (mapi *modbusAPI) loop(scan time.Duration) {
 								}
 							}
 						}
+					case "coils":
+						if mapi.cb_bool != nil {
+							vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
+							if err != nil {
+								log.Panic("unable to read coils: ", err)
+							}
+							for i := uint16(data.Pos); i <= uint16(data.maxPos); i++ {
+								if o, e := mapi.oldValues_bool[normalizeName(data.Values[i])]; o != vls[i-uint16(data.Pos)] || !e {
+									mapi.oldValues_bool[normalizeName(data.Values[i])] = vls[i-uint16(data.Pos)]
+									mapi.cb_bool(normalizeName(data.Values[i]), vls[i-uint16(data.Pos)])
+								}
+							}
+						}
+
 					}
 				}
 			}

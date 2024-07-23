@@ -1,6 +1,6 @@
 module git.nsl.cz/kano/modbus2mqtt
 
-go 1.20
+go 1.21
 
 require (
   github.com/simonvetter/modbus v1.6.0
