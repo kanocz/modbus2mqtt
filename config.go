@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"time"
 )
 
 type configStructRegistersData struct {
@@ -16,6 +17,8 @@ type configStructRegistersData struct {
 	Width    int               `json:"width"`
 	Values   map[uint16]string `json:"values"`
 	ValueX10 bool              `json:"x10"`
+	Daily    bool              `json:"daily"`
+	last     time.Time         // last time this register was updated
 }
 
 type configStructRegisters struct {

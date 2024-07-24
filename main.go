@@ -12,8 +12,9 @@ import (
 
 var (
 	modbusEP      = flag.String("modbus.connect", "tcp://192.168.1.21:502", "tcp / rtu / rtuovertcp / udp / rtuoverudp / ...")
-	modbusTimeout = flag.Duration("modbus.timeout", time.Second*3, "modbus timeout")
+	modbusTimeout = flag.Duration("modbus.timeout", time.Second*5, "modbus timeout")
 	modbusScan    = flag.Duration("modbus.scan", time.Second*10, "modbus scan loop duration")
+	modbusPause   = flag.Duration("modbus.pause", time.Millisecond*50, "modbus pause between reads")
 	mqttBroker    = flag.String("mqtt.broker", "", "[scheme://]ip[:port] of mqtt broker")
 	mqttUser      = flag.String("mqtt.username", "", "username for mqtt broker")
 	mqttPassword  = flag.String("mqtt.password", "", "password for mqtt broker")

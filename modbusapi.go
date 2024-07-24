@@ -270,29 +270,55 @@ func (mapi *modbusAPI) Reload() {
 
 func (mapi *modbusAPI) loop(scan time.Duration) {
 
-	for range time.NewTicker(scan).C {
+	for {
 		func() {
 			mapi.mu.Lock()
 			defer mapi.mu.Unlock()
 
+			time.Sleep(*modbusPause)
+
 			var err error
-			for _, reg := range config.Registers {
+			for regID, reg := range config.Registers {
 				var reg16 uint16
 
 				switch reg.Type {
 				case "hold":
 					reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.HOLDING_REGISTER)
+					if err == modbus.ErrRequestTimedOut {
+						log.Println("modbus timeout")
+						mapi.client.Close()
+						err := mapi.client.Open()
+						if err != nil {
+							log.Panic("unable to open modbus client: ", err)
+						}
+						return
+					}
 					if err != nil {
 						log.Panic("unable to read modbus holding reg: ", err)
 					}
 				case "input":
 					reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.INPUT_REGISTER)
+					if err == modbus.ErrRequestTimedOut {
+						log.Println("modbus timeout")
+						mapi.client.Close()
+						err := mapi.client.Open()
+						if err != nil {
+							log.Panic("unable to open modbus client: ", err)
+						}
+						return
+					}
 					if err != nil {
 						log.Panic("unable to read modbus input reg: ", err)
 					}
 				}
 
-				for _, data := range reg.Data {
+				for dataID, data := range reg.Data {
+
+					// check if we need to update this register
+					if data.Daily && time.Since(data.last) < time.Hour*24 {
+						continue
+					}
+
 					switch data.Type {
 					case "bit":
 						if mapi.cb_bool != nil {
@@ -329,6 +355,15 @@ func (mapi *modbusAPI) loop(scan time.Duration) {
 					case "coils":
 						if mapi.cb_bool != nil {
 							vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
+							if err == modbus.ErrRequestTimedOut {
+								log.Println("modbus timeout")
+								mapi.client.Close()
+								err := mapi.client.Open()
+								if err != nil {
+									log.Panic("unable to open modbus client: ", err)
+								}
+								continue
+							}
 							if err != nil {
 								log.Panic("unable to read coils: ", err)
 							}
@@ -341,8 +376,13 @@ func (mapi *modbusAPI) loop(scan time.Duration) {
 						}
 
 					}
+
+					// update last time this register was updated
+					config.Registers[regID].Data[dataID].last = time.Now()
 				}
+
 			}
 		}()
+		time.Sleep(scan)
 	}
 }
