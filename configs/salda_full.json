@@ -1,0 +1,1062 @@
+{
+    "mqtt": {
+        "lwt_topic": "/recu/ltw",
+        "state_topic": "/recu/state/",
+        "set_topic": "/recu/set/",
+        "broker": "192.168.1.9:1883",
+        "username": "recuvent",
+        "password": "somePassword"
+    },
+    "registers": [
+        {
+            "type": "coils",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "1": "Filters timer reset",
+                        "2": "Date and time set: Set command",
+                        "3": "Dryness protection",
+                        "4": "Night cooling function",
+                        "5": "Intensive air flow",
+                        "6": "Full recirculation on building protection mode",
+                        "7": "Full recirculation on economy mode",
+                        "8": "Air flow control by extract RH",
+                        "9": "Pool function"
+                    }
+                },
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "50": "Do fire damper test",
+                        "51": "Save to EEPROM",
+                        "52": "System Restart",
+                        "53": "Go back to prevous mode"
+                    }
+                },
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "54": "Calibrate pressure limits",
+                        "55": "Remote expansion heater alarm",
+                        "56": "Remote expansion heater warning",
+                        "57": "Remote expansion pre-heater alarm",
+                        "58": "Remote expansion pre-heater warning",
+                        "59": "Remote expansion cooler alarm",
+                        "60": "Remote expansion cooler warning",
+                        "61": "Remote expansion heaters cooling ON",
+                        "62": "Remote expansion el. heater is ON",
+                        "63": "Remote expansion any hydronic heater installed"
+                    }
+                },
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "100": "Heater manual protection",  
+                        "101": "Heater automatic protection",
+                        "102": "Pre-heater manual protection",
+                        "103": "Pre-heater automatic protection",
+                        "104": "Supply fan protection",
+                        "105": "Extract fan protection",
+                        "106": "Heat exchanger pressure relay",
+                        "107": "Bypass closed",
+                        "108": "DX cooler protection",
+                        "109": "Remote mode switch",
+                        "110": "Remote custom fans speed switch",
+                        "111": "Fire protection input",
+                        "112": "Fire damper opened",
+                        "113": "Fire damper closed",
+                        "114": "Supply filter press rele",
+                        "115": "Extract filter press rele",
+                        "116": "Fans protection by RPM (Enable/Disable)",
+                        "117": "Fixed air flows",
+                        "118": "Outdoor air temp. sensor before pre-heater",
+                        "119": "Slow down fans by temperature",
+                        "120": "Fire damper testing",
+                        "121": "Fire damper action on fire alarm",
+                        "122": "Supply recirculation damper",
+                        "123": "Controller cabinet temperature control",
+                        "124": "Fire place protection",
+                        "125": "Service stop function",
+                        "126": "Rotor RPM protection",
+                        "127": "Stop on rotor failure",
+                        "128": "CO2 Level monitoring (Disable/Enable)",
+                        "129": "Fans pressure protection (Disable/Enable)",
+                        "130": "Fire place protection input",
+                        "131": "Heater/pre-heater control position",
+                        "132": "Recirculation by temperature",
+                        "133": "Controller cabinet temperature controlled by",
+                        "134": "Show alarms on cooking hood",
+                        "135": "Enable DX cooler reverse",
+                        "136": "DX cooler defros input",
+                        "137": "EX1 module",
+                        "138": "EX2 module",
+                        "139": "Communication module",
+                        "140": "Hydronic cooler changeover input",
+                        "141": "Air pressure factor",
+                        "142": "Too high condensation level input",
+                        "143": "Supply fan warning input",
+                        "144": "Extract fan warning input",
+                        "145": "Enable extract air flow control by supply air flow",
+                        "146": "Enable extract air fan control by supply air fan",
+                        "147": "Outside recirculation damper",
+                        "148": "DX cooler defrost auto adjusting enable",
+                        "149": "Stop system on circ. pump failure",
+                        "150": "Heater circualtion pump protection input",
+                        "151": "Pre-heater circualtion pump protection input",
+                        "152": "Enable remote heaters/coolers expansion",
+                        "153": "Fire protection 2 input"
+                    }
+                },
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "200": "Restore factory settings"
+                    }
+                },
+                {
+                    "writable": true,
+                    "type": "coils",
+                    "values": {
+                        "202": "Change password"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 1,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Current system mode",
+                    "values": {
+                        "0": "Standby",
+                        "1": "Building protection",
+                        "2": "Economy",
+                        "3": "Comfort"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 2,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Comfort mode temperature Set Point",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 3,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Air flow control by percents"
+                }
+            ]
+        },
+        {
+            "reg": 4,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Economy mode temperature Set Point",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 6,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Building protection mode temperature Set Point",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 15,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Winter/Summer mode",
+                    "values": {
+                        "0": "Summer",
+                        "1": "Winter",
+                        "2": "By date",
+                        "3": "By 3 days outside temperature"
+                    }
+                }
+            ]
+        },
+
+        
+
+        {
+            "reg": 1,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits_const ",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SYSTEM_STATE",
+                    "values": {
+                        "0": "Stand-by",
+                        "1": "Building protection",
+                        "2": "Economy",
+                        "3": "Comfort",
+                        "4": "Emergency run",
+                        "5": "Preparing",
+                        "6": "Opening dampers",
+                        "7": "Boost",
+                        "8": "Cooling heaters",
+                        "9": "Closing dampers",
+                        "10": "Night Cooling",
+                        "11": "Critical alarm",
+                        "12": "Fire alarm",
+                        "13": "Heat exchanger frost protection",
+                        "14": "Change filters",
+                        "15": "Room RH 3 days average is lower than 30%. Limiting speed.",
+                        "16": "DX cooler defrosting",
+                        "17": "Fire damper testing"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 13,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_INTENSIVE_AIR_FLOW_TIME_LEFT"
+                }
+            ]
+        },
+        {
+            "reg": 15,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SYSTEM_MODE"
+                }
+            ]
+        },
+        {
+            "reg": 16,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_AIR_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 17,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_REQUIRED_SUPPLY_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 18,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_AIR_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 19,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_AIR_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 20,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXHAUST_AIR_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 21,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_OUTDOOR_AIR_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 28,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_ACTIVE_ALARMS_COUNT"
+                }
+            ]
+        },
+        {
+            "reg": 30,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_FILTERS_TIMER_DAYS_LEFT"
+                }
+            ]
+        },
+        {
+            "reg": 32,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_HX_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 55,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_FAN_SPREED_RPM"
+                }
+            ]
+        },
+        {
+            "reg": 56,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_FAN_SPREED_RPM"
+                }
+            ]
+        },
+        {
+            "reg": 58,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PCT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 59,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 60,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_M_H"
+                }
+            ]
+        },
+        {
+            "reg": 62,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PCT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 63,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 64,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 65,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_1_SUPPLY_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 66,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_2_SUPPLY_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 67,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_3_SUPPLY_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 68,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_4_SUPPLY_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 71,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_1_EXTRACT_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 72,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_2_EXTRACT_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 73,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_3_EXTRACT_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 74,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_4_EXTRACT_AIR_FLOW_FLOW_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 77,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_1_SUPPLY_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 78,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_2_SUPPLY_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 79,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_3_SUPPLY_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 80,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_4_SUPPLY_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 83,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_1_EXTRACT_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 84,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_2_EXTRACT_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 85,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_3_EXTRACT_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 86,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_4_EXTRACT_AIR_FLOW_FLOW"
+                }
+            ]
+        },
+        {
+            "reg": 91,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_PREATER_CONTROL_OUTPUT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 93,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_BYPASS_POSITION",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 94,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_ROTOR_SPEED_RPM"
+                }
+            ]
+        },
+        {
+            "reg": 95,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_ROTOR_CONTROL_OUTPUT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 100,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_RECIRCULATION_DAMPER_POSITION",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 101,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_DAMPER_POSITION",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 102,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CONTROL_BOX_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 103,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_FROST_POINT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 104,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_HEATEXCHANGER_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 105,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_DX_COOLER_CONTROL_OUTPUT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 112,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_FILTER_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 113,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_FILTER_PRESSURE_ON_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 114,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_FILTER_PRESSURE_OFF_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 115,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_FILTER_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 116,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_FILTER_PRESSURE_ON_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 117,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_EXTRACT_FILTER_PRESSURE_OFF_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 118,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_HEAT_EXCHANGER_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 119,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_HEAT_EXCHANGER_PRESSURE_ON_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 120,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_HEAT_EXCHANGER_PRESSURE_OFF_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 121,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_DX_COIL_PRESSURE"
+                }
+            ]
+        },
+        {
+            "reg": 122,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_DX_COIL_PRESSURE_ON_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 123,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_DX_COIL_PRESSURE_OFF_LIMIT"
+                }
+            ]
+        },
+        {
+            "reg": 124,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_RESERVED_NTC",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 125,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_TEMP_TRANSFER_EFFICIENCY"
+                }
+            ]
+        },
+        {
+            "reg": 126,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_OUTSIDE_RECIRCULATION_DAMPER_POSITION",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 128,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_SUPPLY_DAMPER_POSITION",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 129,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PRESSURE2"
+                }
+            ]
+        },
+        {
+            "reg": 130,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PRESSURE2"
+                }
+            ]
+        },
+        {
+            "reg": 131,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_PRE_HEATING_AIR_SETPOINT",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 132,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_PRE_HEATING_AIR_TEMPERATURE",
+                    "x10": true
+                }
+            ]
+        }
+
+    ]
+}
