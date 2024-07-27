@@ -5,7 +5,13 @@
         "set_topic": "/recu/set/",
         "broker": "192.168.1.9:1883",
         "username": "recuvent",
-        "password": "somePassword"
+        "password": "somePassword",
+        "homeAssistantTopic": "homeassistant",
+        "homeAssistantPrefix": "recu_",
+        "homeAssistantDeviceID": "recu001",
+        "homeAssistantDeviceName": "Recuperace",
+        "homeAssistantDeviceManufacturer": "Salda",
+        "homeAssistantDeviceModel": "Smart 4X V"
     },
     "registers": [
         {
@@ -50,6 +56,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "Comfort mode temperature Set Point",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -64,6 +71,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "Economy mode temperature Set Point",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -78,6 +86,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "Building protection mode temperature Set Point",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -107,7 +116,7 @@
             "type": "input",
             "data": [
                 {
-                    "type": "bits_const ",
+                    "type": "bits_const",
                     "position": 0,
                     "width": 16,
                     "name": "IR_CURRENT_SYSTEM_STATE",
@@ -155,6 +164,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "IR_REQUIRED_SUPPLY_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -168,6 +178,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "IR_SUPPLY_AIR_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -181,6 +192,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "IR_EXTRACT_AIR_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -194,6 +206,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "IR_EXHAUST_AIR_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -207,6 +220,7 @@
                     "position": 0,
                     "width": 16,
                     "name": "IR_OUTDOOR_AIR_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
                     "x10": true
                 }
             ]
@@ -281,6 +295,7 @@
                     "type": "bits",
                     "position": 0,
                     "width": 16,
+                    "homeAssistantClass": "pressure",
                     "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PRESSURE"
                 }
             ]
@@ -318,6 +333,7 @@
                     "type": "bits",
                     "position": 0,
                     "width": 16,
+                    "homeAssistantClass": "pressure",
                     "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PRESSURE"
                 }
             ]
@@ -449,7 +465,7 @@
                     "name": "IR_PREATER_CONTROL_OUTPUT",
                     "x10": true
                 }
-            ]
+            ]   
         },
         {
             "reg": 93,

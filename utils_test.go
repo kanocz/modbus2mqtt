@@ -126,6 +126,33 @@ func TestGetXBit(t *testing.T) {
 			},
 			want: 0b1001,
 		},
+		{
+			name: "4bit_get_0",
+			args: args{
+				orig: 0b0101_0101_1001_0101,
+				pos:  0,
+				bits: 4,
+			},
+			want: 0b0101,
+		},
+		{
+			name: "4bit_get_12",
+			args: args{
+				orig: 0b1000_0100_0010_0001,
+				pos:  12,
+				bits: 4,
+			},
+			want: 0b1000,
+		},
+		{
+			name: "0bit_get_16",
+			args: args{
+				orig: 0b0101_0101_1001_0101,
+				pos:  0,
+				bits: 16,
+			},
+			want: 0b0101_0101_1001_0101,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

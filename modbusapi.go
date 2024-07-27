@@ -20,6 +20,7 @@ var (
 type cbBool func(string, bool)
 type cbU16 func(string, uint16)
 type cbStr func(string, string)
+type cbRaw func(string, string)
 
 type modbusWritable struct {
 	Type    string
@@ -63,7 +64,8 @@ func normalizeName(name string) string {
 
 }
 
-func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan time.Duration, CBU16 cbU16, CBStr cbStr, CBBool cbBool) (*modbusAPI, error) {
+func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan time.Duration,
+	CBU16 cbU16, CBStr cbStr, CBBool cbBool, CBRaw cbRaw) (*modbusAPI, error) {
 
 	client, err := modbus.NewClient(&modbus.ClientConfiguration{
 		URL:     *modbusEP,
@@ -133,6 +135,58 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 
 	go mapi.loop(scan)
 
+	// create mqtt autodiscovery entries
+	if config.MQTT.HATopic != "" {
+
+		haAD := newAutoDiscovery(config.MQTT.HATopic, config.MQTT.HAPrefix,
+			config.MQTT.State_topic, config.MQTT.Set_topic,
+			config.MQTT.HAdevID, config.MQTT.HAdevName, config.MQTT.HAManu, config.MQTT.HAModel)
+
+		for _, reg := range mapi.registers {
+			for _, data := range reg.Data {
+				if reg.Type == "coils" {
+					var topic, payload string
+					for _, v := range data.Values {
+						if !data.Writable {
+							topic, payload = haAD.Get(v, data.origName, "binary_sensor", data.Writable, "", "", nil, false)
+						} else {
+							topic, payload = haAD.Get(v, data.origName, "switch", data.Writable, "", "", nil, false)
+						}
+						CBRaw(topic, payload)
+					}
+					continue
+				}
+
+				if reg.Type == "hold" || reg.Type == "input" {
+
+					eType := ""
+
+					switch {
+					case data.Type == "bit" && data.Writable:
+						eType = "switch"
+					case data.Type == "bit" && !data.Writable:
+						eType = "binary_sensor"
+					case data.Type == "bits" && data.Writable:
+						eType = "number"
+					case data.Type == "bits" && !data.Writable:
+						eType = "sensor"
+					case data.Type == "bits_const" && !data.Writable:
+						eType = "sensor"
+					case data.Type == "bits_const" && data.Writable:
+						eType = "select"
+					}
+
+					topic, payload := haAD.Get(data.Name, data.origName, eType, data.Writable,
+						data.HAClass, data.HAType,
+						data.Values, data.ValueX10)
+					CBRaw(topic, payload)
+
+				}
+
+			}
+		}
+	}
+
 	return mapi, nil
 }
 
@@ -162,6 +216,16 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 			return err
 		}
 		return mapi.SetCoil(name, v)
+	case "bits_const":
+		v, ex := r.RValues[value]
+		if !ex {
+			v64, err := strconv.ParseUint(value, 10, 16)
+			if err != nil {
+				return err
+			}
+			v = uint16(v64)
+		}
+		return mapi.SetBits(name, v)
 	}
 
 	return errWritableInvalidType

@@ -10,15 +10,20 @@ import (
 
 type configStructRegistersData struct {
 	Name     string            `json:"name"`
+	origName string            // original name
 	Writable bool              `json:"writable"`
 	Type     string            `json:"type"`
 	Pos      int               `json:"position"`
 	maxPos   int               // max position for this register
 	Width    int               `json:"width"`
 	Values   map[uint16]string `json:"values"`
+	rValues  map[string]uint16 // reverse values for faster lookup
 	ValueX10 bool              `json:"x10"`
 	Daily    bool              `json:"daily"`
 	last     time.Time         // last time this register was updated
+	HAType   string            `json:"homeAssistantType"`
+	HAClass  string            `json:"homeAssistantClass"`
+	HAUnit   string            `json:"homeAssistantUnit"`
 }
 
 type configStructRegisters struct {
@@ -36,6 +41,12 @@ type configStruct struct {
 		Broker      string `json:"broker"`
 		Username    string `json:"username"`
 		Password    string `json:"password"`
+		HATopic     string `json:"homeAssistantTopic"`
+		HAPrefix    string `json:"homeAssistantPrefix"`
+		HAdevID     string `json:"homeAssistantDeviceID"`
+		HAdevName   string `json:"homeAssistantDeviceName"`
+		HAManu      string `json:"homeAssistantDeviceManufacturer"`
+		HAModel     string `json:"homeAssistantDeviceModel"`
 	} `json:"mqtt"`
 }
 
@@ -60,19 +71,28 @@ func readConfig() error {
 		return errors.New("MQTT config incomplete")
 	}
 
-	// use normalizeName for all names and count max pos
+	// use normalizeName for all names and count max pos + create reverse values map
 	for i, reg := range config.Registers {
 		for j, data := range reg.Data {
+			config.Registers[i].Data[j].origName = config.Registers[i].Data[j].Name
 			config.Registers[i].Data[j].Name = normalizeName(data.Name)
-			for l := range data.Values {
-				config.Registers[i].Data[j].maxPos = max(config.Registers[i].Data[j].maxPos, int(l))
-				if config.Registers[i].Data[j].Pos == 0 {
-					config.Registers[i].Data[j].Pos = int(l)
-				} else {
-					config.Registers[i].Data[j].Pos = min(config.Registers[i].Data[j].Pos, int(l))
+			config.Registers[i].Data[j].rValues = make(map[string]uint16)
+			if data.Type == "coils" {
+				for l := range data.Values {
+					config.Registers[i].Data[j].maxPos = max(config.Registers[i].Data[j].maxPos, int(l))
+					if config.Registers[i].Data[j].Pos == 0 {
+						config.Registers[i].Data[j].Pos = int(l)
+					} else {
+						config.Registers[i].Data[j].Pos = min(config.Registers[i].Data[j].Pos, int(l))
+					}
 				}
-
 			}
+			if data.Type == "bits_const" {
+				for l, v := range data.Values {
+					config.Registers[i].Data[j].rValues[v] = l
+				}
+			}
+
 		}
 	}
 

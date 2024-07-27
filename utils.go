@@ -21,6 +21,10 @@ func GetBit(orig uint16, pos int) bool {
 // set X bits in uin16
 func SetXBit(orig uint16, val uint16, pos int, bits int) uint16 {
 
+	if pos == 0 && bits == 16 {
+		return val
+	}
+
 	var mask uint16
 	for i := pos; i < pos+bits; i++ {
 		mask |= (uint16(1) << i)
@@ -37,6 +41,10 @@ func SetXBit(orig uint16, val uint16, pos int, bits int) uint16 {
 
 // get X-bits from uint16 at specified position
 func GetXBit(orig uint16, pos int, bits int) uint16 {
+
+	if pos == 0 && bits == 16 {
+		return orig
+	}
 
 	var mask uint16
 	for i := pos; i < pos+bits; i++ {

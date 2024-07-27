@@ -67,6 +67,10 @@ func (api *mqttAPI) Publish(name string, value interface{}) {
 	api.client.Publish(api.state_topic+name, 1, true, value)
 }
 
+func (api *mqttAPI) RawPublish(name string, value interface{}) {
+	api.client.Publish(name, 1, true, value)
+}
+
 func NewMqttAPI(mqttBroker, mqttUser, mqttPassword string, mqttTimeout time.Duration, lwt_topic string, state_topic string, set_topic string) (*mqttAPI, error) {
 
 	options := mqtt.NewClientOptions()

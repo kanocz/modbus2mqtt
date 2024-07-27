@@ -65,6 +65,9 @@ func main() {
 			v = "on"
 		}
 		mqttapi.Publish(s, v)
+	}, func(s string, v string) {
+		log.Printf("raw %s: %v", s, v)
+		mqttapi.RawPublish(s, v)
 	})
 	if err != nil {
 		log.Panic("unable to create modbus client: ", err)
