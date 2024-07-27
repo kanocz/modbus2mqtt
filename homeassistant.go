@@ -22,6 +22,9 @@ type haAutoDiscoveryEntry struct {
 		Model        string   `json:"model,omitempty"`
 		Manufacturer string   `json:"manufacturer,omitempty"`
 	} `json:"device,omitempty"`
+	PayloadOn  string `json:"payload_on,omitempty"`
+	PayloadOff string `json:"payload_off,omitempty"`
+	Retain     bool   `json:"retain,omitempty"`
 }
 
 type haAutoDiscovery struct {
@@ -120,6 +123,11 @@ func (haad haAutoDiscovery) Get(name string, origName string, eType string, writ
 			Model:        haad.model,
 			Manufacturer: haad.manufacturer,
 		},
+	}
+
+	if eType == "switch" || eType == "binary_sensor" {
+		haadEntry.PayloadOn = "on"
+		haadEntry.PayloadOff = "off"
 	}
 
 	if x10 {
