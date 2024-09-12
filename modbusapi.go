@@ -28,6 +28,7 @@ type modbusWritable struct {
 	Width   int
 	RValues map[string]uint16
 	Reg     uint16
+	X10     bool
 }
 
 type modbusAPI struct {
@@ -114,6 +115,7 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 					Width:   data.Width,
 					Reg:     reg.Reg,
 					RValues: RValues,
+					X10:     data.ValueX10,
 				}
 			}
 		} else { // coils
@@ -199,21 +201,48 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 
 	switch r.Type {
 	case "bit":
-		v, err := strconv.ParseBool(value)
-		if err != nil {
-			return err
+		var (
+			v   bool
+			err error
+		)
+		if strings.ToLower(value) == "on" { // special case for HA
+			v = true
+		} else if strings.ToLower(value) == "off" { // special case for HA
+			v = false
+		} else {
+			v, err = strconv.ParseBool(value)
+			if err != nil {
+				return err
+			}
 		}
 		return mapi.SetBit(name, v)
 	case "bits":
+		if r.X10 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return err
+			}
+			return mapi.SetBits(name, uint16(v*10))
+		}
 		v, err := strconv.ParseUint(value, 10, 16)
 		if err != nil {
 			return err
 		}
 		return mapi.SetBits(name, uint16(v))
 	case "coil":
-		v, err := strconv.ParseBool(value)
-		if err != nil {
-			return err
+		var (
+			v   bool
+			err error
+		)
+		if strings.ToLower(value) == "on" { // special case for HA
+			v = true
+		} else if strings.ToLower(value) == "off" { // special case for HA
+			v = false
+		} else {
+			v, err = strconv.ParseBool(value)
+			if err != nil {
+				return err
+			}
 		}
 		return mapi.SetCoil(name, v)
 	case "bits_const":
@@ -292,7 +321,7 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 		return errWritableNotFound
 	}
 
-	if r.Type != "bits" {
+	if r.Type != "bits" && r.Type != "bits_const" {
 		return errWritableInvalidType
 	}
 
