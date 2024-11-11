@@ -463,7 +463,11 @@ func (mapi *modbusAPI) loop(scan time.Duration) {
 							case data.ValueX10 && !data.Signed && mapi.cb_str != nil:
 								mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
 							case data.ValueX10 && data.Signed && mapi.cb_str != nil:
-								mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
+								if v > 32767 {
+									mapi.cb_str(data.Name, fmt.Sprintf("-%d.%d", -int16(v)/10, -int16(v)%10))
+								} else {
+									mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
+								}
 							}
 
 						}
