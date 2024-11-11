@@ -29,6 +29,7 @@ type modbusWritable struct {
 	RValues map[string]uint16
 	Reg     uint16
 	X10     bool
+	Signed  bool
 }
 
 type modbusAPI struct {
@@ -116,6 +117,7 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 					Reg:     reg.Reg,
 					RValues: RValues,
 					X10:     data.ValueX10,
+					Signed:  data.Signed,
 				}
 			}
 		} else { // coils
@@ -217,6 +219,33 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 		}
 		return mapi.SetBit(name, v)
 	case "bits":
+		switch {
+		case !r.Signed && !r.X10:
+			v, err := strconv.ParseUint(value, 10, 16)
+			if err != nil {
+				return err
+			}
+			return mapi.SetBits(name, uint16(v))
+		case !r.Signed && r.X10:
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return err
+			}
+			return mapi.SetBits(name, uint16(v*10))
+		case r.Signed && !r.X10:
+			v, err := strconv.ParseInt(value, 10, 16)
+			if err != nil {
+				return err
+			}
+			return mapi.SetBits(name, uint16(v))
+		case r.Signed && r.X10:
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return err
+			}
+			return mapi.SetBits(name, uint16(v*10))
+		}
+
 		if r.X10 {
 			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
@@ -426,15 +455,17 @@ func (mapi *modbusAPI) loop(scan time.Duration) {
 						if o, e := mapi.oldValues_u16[data.Name]; o != v || !e {
 							mapi.oldValues_u16[data.Name] = v
 
-							if !data.ValueX10 {
-								if mapi.cb_u16 != nil {
-									mapi.cb_u16(data.Name, v)
-								}
-							} else {
-								if mapi.cb_str != nil {
-									mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
-								}
+							switch {
+							case !data.ValueX10 && !data.Signed && mapi.cb_u16 != nil:
+								mapi.cb_u16(data.Name, v)
+							case !data.ValueX10 && data.Signed && mapi.cb_str != nil:
+								mapi.cb_str(data.Name, fmt.Sprintf("%d", int16(v)))
+							case data.ValueX10 && !data.Signed && mapi.cb_str != nil:
+								mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
+							case data.ValueX10 && data.Signed && mapi.cb_str != nil:
+								mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
 							}
+
 						}
 					case "bits_const":
 						if mapi.cb_str != nil {

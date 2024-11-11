@@ -165,7 +165,8 @@
                     "width": 16,
                     "name": "IR_REQUIRED_SUPPLY_TEMPERATURE",
                     "homeAssistantClass": "temperature",
-                    "x10": true
+                    "x10": true,
+                    "signed": true
                 }
             ]
         },
@@ -179,7 +180,8 @@
                     "width": 16,
                     "name": "IR_SUPPLY_AIR_TEMPERATURE",
                     "homeAssistantClass": "temperature",
-                    "x10": true
+                    "x10": true,
+                    "signed": true
                 }
             ]
         },
@@ -193,7 +195,8 @@
                     "width": 16,
                     "name": "IR_EXTRACT_AIR_TEMPERATURE",
                     "homeAssistantClass": "temperature",
-                    "x10": true
+                    "x10": true,
+                    "signed": true
                 }
             ]
         },
@@ -207,7 +210,8 @@
                     "width": 16,
                     "name": "IR_EXHAUST_AIR_TEMPERATURE",
                     "homeAssistantClass": "temperature",
-                    "x10": true
+                    "x10": true,
+                    "signed": true
                 }
             ]
         },
@@ -221,7 +225,8 @@
                     "width": 16,
                     "name": "IR_OUTDOOR_AIR_TEMPERATURE",
                     "homeAssistantClass": "temperature",
-                    "x10": true
+                    "x10": true,
+                    "signed": true
                 }
             ]
         },
@@ -477,6 +482,36 @@
                     "width": 16,
                     "name": "IR_BYPASS_POSITION",
                     "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 131,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_PRE_HEATING_AIR_SETPOINT",
+                    "homeAssistantClass": "temperature",
+                    "x10": true,
+                    "signed": true
+                }
+            ]
+        },
+        {
+            "reg": 132,
+            "type": "input",
+            "data": [
+                {
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "IR_PRE_HEATING_AIR_TEMPERATURE",
+                    "homeAssistantClass": "temperature",
+                    "x10": true,
+                    "signed": true
                 }
             ]
         }

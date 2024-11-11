@@ -19,6 +19,7 @@ type configStructRegistersData struct {
 	Values   map[uint16]string `json:"values"`
 	rValues  map[string]uint16 // reverse values for faster lookup
 	ValueX10 bool              `json:"x10"`
+	Signed   bool              `json:"signed"`
 	Daily    bool              `json:"daily"`
 	last     time.Time         // last time this register was updated
 	HAType   string            `json:"homeAssistantType"`
