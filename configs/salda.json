@@ -301,7 +301,8 @@
                     "position": 0,
                     "width": 16,
                     "homeAssistantClass": "pressure",
-                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PRESSURE"
+                    "name": "IR_CURRENT_SUPPLY_AIR_FLOW_PRESSURE",
+                    "signed": true
                 }
             ]
         },
@@ -339,7 +340,8 @@
                     "position": 0,
                     "width": 16,
                     "homeAssistantClass": "pressure",
-                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PRESSURE"
+                    "name": "IR_CURRENT_EXTRACT_AIR_FLOW_PRESSURE",
+                    "signed": true
                 }
             ]
         },
