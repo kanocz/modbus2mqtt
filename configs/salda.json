@@ -21,6 +21,7 @@
                     "writable": true,
                     "type": "coils",
                     "values": {
+                        "1": "Filters timer reset",
                         "4": "Night cooling function",
                         "5": "Intensive air flow"
                     }
