@@ -15,6 +15,9 @@ type haAutoDiscoveryEntry struct {
 	DeviceClass      string   `json:"device_class,omitempty"`
 	UnitOfMeasuremet string   `json:"unit_of_measurement,omitempty"`
 	Step             float64  `json:"step,omitempty"`
+	Min              float64  `json:"min,omitempty"`
+	Max              float64  `json:"max,omitempty"`
+	Mode             string   `json:"mode,omitempty"`
 	Options          []string `json:"options,omitempty"`
 	Device           struct {
 		Identifiers  []string `json:"identifiers"`
@@ -76,6 +79,16 @@ func (haad haAutoDiscovery) Get(name string, origName string, eType string, writ
 	if haClass == "power" {
 		haUnit = "W"
 	}
+	if haClass == "hour" || haClass == "hours" {
+		haUnit = "h"
+	}
+	if haClass == "minute" || haClass == "minutes" {
+		haUnit = "min"
+	}
+	if haClass == "second" || haClass == "seconds" {
+		haUnit = "s"
+	}
+
 	if haClass == "" && haUnit == "" {
 		if strings.HasSuffix(name, "_rpm") {
 			haUnit = "rpm"
@@ -123,6 +136,21 @@ func (haad haAutoDiscovery) Get(name string, origName string, eType string, writ
 			Model:        haad.model,
 			Manufacturer: haad.manufacturer,
 		},
+	}
+
+	if haClass == "hour" || haClass == "hours" {
+		haadEntry.Min = 0
+		haadEntry.Max = 23
+		haadEntry.Step = 1
+		haadEntry.Mode = "box"
+		haadEntry.DeviceClass = ""
+	}
+	if haClass == "minute" || haClass == "minutes" || haClass == "second" || haClass == "seconds" {
+		haadEntry.Min = 0
+		haadEntry.Max = 59
+		haadEntry.Step = 1
+		haadEntry.Mode = "box"
+		haadEntry.DeviceClass = ""
 	}
 
 	if eType == "switch" || eType == "binary_sensor" {
