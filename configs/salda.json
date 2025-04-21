@@ -111,6 +111,124 @@
                 }
             ]
         },
+        {
+            "reg": 29,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Night cooling: Extract air temperature for start",
+                    "homeAssistantClass": "temperature",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 30,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Night cooling: Extract air temperature for stop",
+                    "homeAssistantClass": "temperature",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 31,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Night cooling: Outdoor temperature for stop",
+                    "homeAssistantClass": "temperature",
+                    "x10": true
+                }
+            ]
+        },
+        {
+            "reg": 32,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "name": "Night cooling: Supply air setpoint",
+                    "homeAssistantClass": "temperature",
+                    "x10": true
+                }
+            ]
+        },
+
+        {
+            "reg": 25,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "homeAssistantClass": "hours",
+                    "name": "Night cooling: Start hours"
+                }
+            ]
+        },
+        {
+            "reg": 26,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "homeAssistantClass": "minutes",
+                    "name": "Night cooling: Start minutes"
+                }
+            ]
+        },
+
+        {
+            "reg": 27,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "homeAssistantClass": "hours",
+                    "name": "Night cooling: Stop hours"
+                }
+            ]
+        },
+        {
+            "reg": 28,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits",
+                    "position": 0,
+                    "width": 16,
+                    "homeAssistantClass": "minutes",
+                    "name": "Night cooling: Stop minutes"
+                }
+            ]
+        },
 
         {
             "reg": 1,
