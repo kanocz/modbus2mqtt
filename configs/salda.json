@@ -229,6 +229,82 @@
                 }
             ]
         },
+        {
+            "reg": 626,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "SUP sensor type",
+                    "values": {
+                        "0": "None",
+                        "1": "Remote",
+                        "2": "NTC 10K 3997",
+                        "3950": "NTC 10K 3950"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 627,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "EXT sensor type",
+                    "values": {
+                        "0": "None",
+                        "1": "Remote",
+                        "2": "NTC 10K 3997",
+                        "3950": "NTC 10K 3950"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 628,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "EHA sensor type",
+                    "values": {
+                        "0": "None",
+                        "1": "Remote",
+                        "2": "NTC 10K 3997",
+                        "3950": "NTC 10K 3950"
+                    }
+                }
+            ]
+        },
+        {
+            "reg": 629,
+            "type": "hold",
+            "data": [
+                {
+                    "writable": true,
+                    "type": "bits_const",
+                    "position": 0,
+                    "width": 16,
+                    "name": "OUT sensor type",
+                    "values": {
+                        "0": "None",
+                        "1": "Remote",
+                        "2": "NTC 10K 3997",
+                        "3950": "NTC 10K 3950"
+                    }
+                }
+            ]
+        },
 
         {
             "reg": 1,
