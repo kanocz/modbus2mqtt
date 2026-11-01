@@ -16,6 +16,8 @@ example `50ms`, `10s`, or `5m`.
 | `-modbus.scan` | `10s` | Wait after each polling cycle and between Modbus connection attempts. A cycle's read time is added to this interval. Must be positive. |
 | `-modbus.pause` | `50ms` | Pause before each Modbus read or write request, including requests made by commands. Must be nonnegative; `0` disables the pause. |
 | `-modbus.startup-attempts` | `3` | Total Modbus connection attempts at startup, including the first attempt. Must be at least `1`. Reconnects after startup have no attempt limit. |
+| `-modbus.read-attempts` | `3` | Total attempts per read after a timeout, using the same connection. Must be at least `1`; `1` disables read retries. Writes are never retried. |
+| `-modbus.batch-size` | `125` | Maximum number of adjacent holding/input registers per read. Allowed range: `1`–`125`; `1` disables batching. |
 | `-mqtt.broker` | Empty | MQTT broker address, such as `tcp://localhost:1883`. A nonempty value overrides `mqtt.broker` in the configuration. |
 | `-mqtt.username` | Empty | MQTT username. A nonempty value overrides `mqtt.username` in the configuration. |
 | `-mqtt.password` | Empty | MQTT password. A nonempty value overrides `mqtt.password` in the configuration. |
@@ -34,10 +36,30 @@ number of Modbus connection attempts, including the first attempt. Failed attemp
 are separated by `-modbus.scan` (default `10s`); after the last failure the bridge
 exits with an error. Configuration errors are not retried. This option applies to
 Modbus only; an initial MQTT connection failure still exits immediately.
-After a successful startup, transport failures trigger reconnects every
-`-modbus.scan` without an attempt limit. Modbus exception replies are logged and
-polling continues with other registers. `-modbus.pause` (default `50ms`) applies
-between requests.
+After a read timeout, the bridge sends the same request again on the same
+connection, up to `-modbus.read-attempts` total attempts (default `3`: one initial
+send and two retries). Each attempt uses `-modbus.timeout`; `-modbus.pause`
+(default `50ms`) applies before every request, including retries. Retries do not
+wait for `-modbus.scan`. This applies to holding registers, input registers,
+coils, and the read step of read-modify-write commands; writes are never retried.
+After the last read timeout or another transport error, the connection is closed
+and reconnects are attempted every `-modbus.scan` without an attempt limit.
+Modbus exception replies are not retried as timeouts; polling continues with
+other registers.
+
+Holding/input entries that are consecutive in the configuration and have adjacent
+ascending addresses are read together, up to `-modbus.batch-size` registers.
+Holding and input registers use separate requests; unconfigured address gaps and
+daily-only entries that are not due are not included. For example, holding
+registers 20, 21, and 22 can be read with one request and decoded separately.
+Coil groups already use range reads. If a batch returns an illegal-address or
+illegal-value exception, the bridge falls back to individual reads for that
+batch in the current polling cycle. For a controller with a smaller read limit,
+lower `-modbus.batch-size`, or set it to `1` to disable batching.
+
+RTU-over-TCP has no transaction ID: a late response cannot be distinguished from
+the response to a repeated identical request. Retries help with lost frames, but
+do not guarantee recovery from delayed or overlapping responses.
 
 MQTT command subscriptions are restored on every connection. Discovery and the
 latest cached states are also resent after reconnection, at most once per
@@ -52,6 +74,8 @@ are examples. Replace the Modbus address below with your gateway's address.
 ./modbus2mqtt -config configs/salda.json \
   -modbus.connect rtuovertcp://192.168.1.21:502 \
   -modbus.startup-attempts 3 \
+  -modbus.read-attempts 3 \
+  -modbus.batch-size 125 \
   -mqtt.resync-interval 5m
 ```
 

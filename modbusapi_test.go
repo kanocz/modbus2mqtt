@@ -141,6 +141,9 @@ func TestRTUOverTCPPollRecovers(t *testing.T) {
 					return err
 				})
 				mapi := newRTUTestAPI(t, listener)
+				if fault != "timeout" {
+					mapi.readAttempts = 3
+				}
 				data := configStructRegistersData{Name: "value", Type: "bits", Width: 16}
 				if kind == "coils" {
 					data.Type = "coils"
@@ -241,6 +244,9 @@ func TestRTUOverTCPSetTimeout(t *testing.T) {
 				return err
 			})
 			mapi := newRTUTestAPI(t, listener)
+			if tc.readFirst || tc.register.Type == "coil" || tc.register.Width == 16 {
+				mapi.readAttempts = 3
+			}
 			mapi.writables = map[string]modbusWritable{"value": tc.register}
 			if err := mapi.Set("value", "1"); !errors.Is(err, modbus.ErrRequestTimedOut) {
 				t.Fatalf("Set error = %v, want timeout", err)
@@ -385,15 +391,15 @@ func TestOpenModbusWithRetry(t *testing.T) {
 func TestConstructorReadOnlyDiscoveryAndStartup(t *testing.T) {
 	listener := listenRTUTest(t, "127.0.0.1:0")
 	serveRTUTest(t, listener, func(conn net.Conn) error {
-		for i := 0; i < 2; i++ {
-			if _, err := readRTUTestRequest(conn); err != nil {
-				return err
-			}
-			if _, err := conn.Write(rtuTestFrame([]byte{1, 3, 2, 0, 1})); err != nil {
-				return err
-			}
+		request, err := readRTUTestRequest(conn)
+		if err != nil {
+			return err
 		}
-		return nil
+		if count := binary.BigEndian.Uint16(request[4:6]); count != 2 {
+			return fmt.Errorf("expected one batch of two registers, got %d", count)
+		}
+		_, err = conn.Write(rtuTestFrame([]byte{1, 3, 4, 0, 1, 0, 1}))
+		return err
 	})
 	cfg := configStruct{Registers: []configStructRegisters{
 		{Type: "hold", Reg: 1, Data: []configStructRegistersData{{Name: "readonly", Type: "bits", Width: 16, HAUnit: "kWh", HAType: "measurement"}}},
@@ -503,6 +509,7 @@ func TestExceptionDoesNotStopOtherRegisters(t *testing.T) {
 			})
 			api := newRTUTestAPI(t, listener)
 			data := configStructRegistersData{Name: "bad", Type: "bits", Width: 16}
+			api.readAttempts = 3
 			if kind == "coils" {
 				data = configStructRegistersData{Type: "coils", Values: map[uint16]string{0: "bad"}}
 			}

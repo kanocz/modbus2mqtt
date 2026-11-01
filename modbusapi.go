@@ -18,6 +18,7 @@ var (
 	errWritableInvalidType = errors.New("writible value doesn't suit register type")
 	errModbusDisconnected  = errors.New("modbus disconnected; waiting for reconnect")
 	errValueOutOfRange     = errors.New("value outside register range or precision")
+	errModbusClosed        = errors.New("modbus client closed")
 )
 
 type cbBool func(string, bool)
@@ -39,6 +40,8 @@ type modbusAPI struct {
 	registers      []configStructRegisters
 	client         *modbus.ModbusClient
 	reconnect      bool
+	readAttempts   int
+	batchSize      int
 	cb_u16         cbU16
 	cb_str         cbStr
 	cb_bool        cbBool
@@ -95,6 +98,9 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 	if timeout <= 0 || scan <= 0 {
 		return nil, errors.New("modbus timeout and scan must be positive")
 	}
+	if *modbusReadAttempts < 1 || *modbusBatchSize < 1 || *modbusBatchSize > 125 {
+		return nil, errors.New("modbus.read-attempts must be at least 1 and modbus.batch-size must be between 1 and 125")
+	}
 	if err := config.prepareRegisters(); err != nil {
 		return nil, err
 	}
@@ -116,6 +122,8 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 	mapi := &modbusAPI{
 		registers:      config.Registers,
 		client:         client,
+		readAttempts:   *modbusReadAttempts,
+		batchSize:      *modbusBatchSize,
 		cb_u16:         CBU16,
 		cb_str:         CBStr,
 		cb_bool:        CBBool,
@@ -361,11 +369,11 @@ func (mapi *modbusAPI) SetBit(name string, value bool) error {
 	if mapi.reconnect {
 		return errModbusDisconnected
 	}
-	time.Sleep(*modbusPause)
-	reg16, err := mapi.client.ReadRegister(r.Reg, modbus.HOLDING_REGISTER)
+	values, err := mapi.readRegisters(r.Reg, 1, "hold")
 	if err != nil {
-		return mapi.connectionError("read holding register", r.Reg, err)
+		return err
 	}
+	reg16 := values[0]
 	orig := reg16
 
 	if value {
@@ -421,8 +429,8 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 	if mapi.reconnect {
 		return errModbusDisconnected
 	}
-	time.Sleep(*modbusPause)
 	if r.Pos == 0 && r.Width == 16 {
+		time.Sleep(*modbusPause)
 		err := mapi.client.WriteRegisters(r.Reg, []uint16{value})
 		if err != nil {
 			return mapi.connectionError("write register", r.Reg, err)
@@ -430,10 +438,11 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 		return nil
 	}
 
-	reg16, err := mapi.client.ReadRegister(r.Reg, modbus.HOLDING_REGISTER)
+	values, err := mapi.readRegisters(r.Reg, 1, "hold")
 	if err != nil {
-		return mapi.connectionError("read holding register", r.Reg, err)
+		return err
 	}
+	reg16 := values[0]
 	orig := reg16
 
 	reg16 = SetXBit(reg16, value, r.Pos, r.Width)
@@ -462,13 +471,57 @@ func isModbusException(err error) bool {
 	return false
 }
 
-// Called with mu held; discard the connection so late RTU replies cannot reach the next request.
+// Called with mu held after a non-retryable error or exhausted read attempts.
 func (mapi *modbusAPI) connectionError(operation string, reg uint16, err error) error {
 	if !isModbusException(err) {
 		mapi.client.Close()
 		mapi.reconnect = true
 	}
 	return fmt.Errorf("modbus %s at %d: %w", operation, reg, err)
+}
+
+// Called with mu held. Only reads may be retried: a timed-out write may have succeeded.
+func readWithRetry[T any](mapi *modbusAPI, operation string, reg uint16, read func() (T, error)) (value T, err error) {
+	attempts := max(1, mapi.readAttempts)
+	for attempt := 1; ; attempt++ {
+		timer := time.NewTimer(*modbusPause)
+		select {
+		case <-mapi.done:
+			timer.Stop()
+			return value, errModbusClosed
+		case <-timer.C:
+		}
+		value, err = read()
+		if err == nil {
+			return value, nil
+		}
+		if !errors.Is(err, modbus.ErrRequestTimedOut) {
+			return value, mapi.connectionError(operation, reg, err)
+		}
+		if attempt == attempts {
+			return value, fmt.Errorf("%w (after %d read attempts)", mapi.connectionError(operation, reg, err), attempt)
+		}
+		log.Printf("modbus %s at %d: %v; retrying on the same connection, attempt %d/%d", operation, reg, err, attempt+1, attempts)
+	}
+}
+
+func (mapi *modbusAPI) readRegisters(addr, count uint16, kind string) ([]uint16, error) {
+	regType := modbus.HOLDING_REGISTER
+	if kind == "input" {
+		regType = modbus.INPUT_REGISTER
+	}
+	return readWithRetry(mapi, fmt.Sprintf("read %s registers (count %d)", kind, count), addr, func() ([]uint16, error) {
+		return mapi.client.ReadRegisters(addr, count, regType)
+	})
+}
+
+func registerDue(reg configStructRegisters, now time.Time) bool {
+	for _, data := range reg.Data {
+		if !data.Daily || now.Sub(data.last) >= 24*time.Hour {
+			return true
+		}
+	}
+	return false
 }
 
 func (mapi *modbusAPI) loop(scan time.Duration) {
@@ -503,31 +556,42 @@ func (mapi *modbusAPI) poll() error {
 		log.Println("modbus reconnected")
 	}
 
+	var batchValues []uint16
+	singleUntil := 0
 	for regID, reg := range mapi.registers {
 		var reg16 uint16
-		needsRead := false
-		for _, data := range reg.Data {
-			needsRead = needsRead || !data.Daily || time.Since(data.last) >= 24*time.Hour
-		}
-		if !needsRead {
+		now := time.Now()
+		if !registerDue(reg, now) {
 			continue
 		}
 		if reg.Type == "hold" || reg.Type == "input" {
-			kind := modbus.HOLDING_REGISTER
-			if reg.Type == "input" {
-				kind = modbus.INPUT_REGISTER
-			}
-			time.Sleep(*modbusPause)
-			var err error
-			reg16, err = mapi.client.ReadRegister(reg.Reg, kind)
-			if err != nil {
-				err = mapi.connectionError("read "+reg.Type+" register", reg.Reg, err)
-				if isModbusException(err) {
-					log.Print(err)
-					continue
+			if len(batchValues) == 0 {
+				count := 1
+				for regID >= singleUntil && count < max(1, mapi.batchSize) && regID+count < len(mapi.registers) {
+					next := mapi.registers[regID+count]
+					if next.Type != reg.Type || int(next.Reg) != int(reg.Reg)+count || !registerDue(next, now) {
+						break
+					}
+					count++
 				}
-				return err
+				var err error
+				batchValues, err = mapi.readRegisters(reg.Reg, uint16(count), reg.Type)
+				if count > 1 && (errors.Is(err, modbus.ErrIllegalDataAddress) || errors.Is(err, modbus.ErrIllegalDataValue)) {
+					// A device may reject a range even when some or all individual addresses work.
+					log.Printf("%v; falling back to individual reads", err)
+					singleUntil = regID + count
+					batchValues, err = mapi.readRegisters(reg.Reg, 1, reg.Type)
+				}
+				if err != nil {
+					batchValues = nil
+					if isModbusException(err) {
+						log.Print(err)
+						continue
+					}
+					return err
+				}
 			}
+			reg16, batchValues = batchValues[0], batchValues[1:]
 		}
 
 		for dataID, data := range reg.Data {
@@ -577,10 +641,10 @@ func (mapi *modbusAPI) poll() error {
 				}
 			case "coils":
 				if mapi.cb_bool != nil {
-					time.Sleep(*modbusPause)
-					vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
+					vls, err := readWithRetry(mapi, "read coils", uint16(data.Pos), func() ([]bool, error) {
+						return mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
+					})
 					if err != nil {
-						err = mapi.connectionError("read coils", uint16(data.Pos), err)
 						if isModbusException(err) {
 							log.Print(err)
 							continue

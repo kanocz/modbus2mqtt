@@ -16,6 +16,8 @@ var (
 	modbusScan            = flag.Duration("modbus.scan", time.Second*10, "modbus scan loop duration")
 	modbusPause           = flag.Duration("modbus.pause", time.Millisecond*50, "modbus pause between reads")
 	modbusStartupAttempts = flag.Int("modbus.startup-attempts", 3, "total Modbus connection attempts at startup (at least 1), separated by modbus.scan")
+	modbusReadAttempts    = flag.Int("modbus.read-attempts", 3, "total attempts per Modbus read on timeout using the same connection (at least 1); writes are never retried")
+	modbusBatchSize       = flag.Int("modbus.batch-size", 125, "maximum adjacent holding/input registers per read (1-125; 1 disables batching)")
 	mqttBroker            = flag.String("mqtt.broker", "", "[scheme://]ip[:port] of mqtt broker")
 	mqttUser              = flag.String("mqtt.username", "", "username for mqtt broker")
 	mqttPassword          = flag.String("mqtt.password", "", "password for mqtt broker")
@@ -33,6 +35,9 @@ func main() {
 	}
 	if *modbusStartupAttempts < 1 {
 		log.Fatal("modbus.startup-attempts must be at least 1")
+	}
+	if *modbusReadAttempts < 1 || *modbusBatchSize < 1 || *modbusBatchSize > 125 {
+		log.Fatal("modbus.read-attempts must be at least 1 and modbus.batch-size must be between 1 and 125")
 	}
 
 	err := readConfig()
