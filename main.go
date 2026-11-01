@@ -11,14 +11,16 @@ import (
 )
 
 var (
-	modbusEP      = flag.String("modbus.connect", "tcp://192.168.1.21:502", "tcp / rtu / rtuovertcp / udp / rtuoverudp / ...")
-	modbusTimeout = flag.Duration("modbus.timeout", time.Second*5, "modbus timeout")
-	modbusScan    = flag.Duration("modbus.scan", time.Second*10, "modbus scan loop duration")
-	modbusPause   = flag.Duration("modbus.pause", time.Millisecond*50, "modbus pause between reads")
-	mqttBroker    = flag.String("mqtt.broker", "", "[scheme://]ip[:port] of mqtt broker")
-	mqttUser      = flag.String("mqtt.username", "", "username for mqtt broker")
-	mqttPassword  = flag.String("mqtt.password", "", "password for mqtt broker")
-	mqttTimeout   = flag.Duration("mqtt.timeout", time.Second*5, "mqtt connect timeout")
+	modbusEP              = flag.String("modbus.connect", "tcp://192.168.1.21:502", "tcp / rtu / rtuovertcp / udp / rtuoverudp / ...")
+	modbusTimeout         = flag.Duration("modbus.timeout", time.Second*5, "modbus timeout")
+	modbusScan            = flag.Duration("modbus.scan", time.Second*10, "modbus scan loop duration")
+	modbusPause           = flag.Duration("modbus.pause", time.Millisecond*50, "modbus pause between reads")
+	modbusStartupAttempts = flag.Int("modbus.startup-attempts", 3, "total Modbus connection attempts at startup (at least 1), separated by modbus.scan")
+	mqttBroker            = flag.String("mqtt.broker", "", "[scheme://]ip[:port] of mqtt broker")
+	mqttUser              = flag.String("mqtt.username", "", "username for mqtt broker")
+	mqttPassword          = flag.String("mqtt.password", "", "password for mqtt broker")
+	mqttTimeout           = flag.Duration("mqtt.timeout", time.Second*5, "mqtt connect timeout")
+	mqttResyncInterval    = flag.Duration("mqtt.resync-interval", 5*time.Minute, "minimum interval between full MQTT discovery/state resends after reconnect")
 )
 
 func main() {
@@ -26,6 +28,12 @@ func main() {
 	log.Println("modbus2mqtt starting")
 
 	flag.Parse()
+	if *modbusPause < 0 {
+		log.Fatal("modbus.pause must not be negative")
+	}
+	if *modbusStartupAttempts < 1 {
+		log.Fatal("modbus.startup-attempts must be at least 1")
+	}
 
 	err := readConfig()
 
@@ -46,13 +54,14 @@ func main() {
 		mqtt_broker = *mqttBroker
 	}
 
-	mqttapi, err := NewMqttAPI(mqtt_broker, mqtt_user, mqtt_pass, *mqttTimeout,
+	mqttapi, err := NewMqttAPI(mqtt_broker, mqtt_user, mqtt_pass, *mqttTimeout, *mqttResyncInterval,
 		config.MQTT.Lwt_topic, config.MQTT.State_topic, config.MQTT.Set_topic)
 	if err != nil {
 		log.Panic("unable to create mqtt client: ", err)
 	}
+	defer mqttapi.Close()
 
-	mapi, err := NewModbusAPI(config, *modbusEP, *modbusTimeout, *modbusScan, func(s string, u uint16) {
+	mapi, err := NewModbusAPI(config, *modbusEP, *modbusTimeout, *modbusScan, *modbusStartupAttempts, func(s string, u uint16) {
 		log.Printf("%s: %v", s, u)
 		mqttapi.Publish(s, strconv.FormatUint(uint64(u), 10))
 	}, func(s1, s2 string) {
@@ -72,6 +81,10 @@ func main() {
 	if err != nil {
 		log.Panic("unable to create modbus client: ", err)
 	}
+	defer func() {
+		mqttapi.Close()
+		mapi.Close()
+	}()
 
 	mqttapi.SetCB(func(name, value string) {
 		err := mapi.Set(name, value)

@@ -8,18 +8,19 @@ import (
 )
 
 type haAutoDiscoveryEntry struct {
-	Name             string   `json:"name"`
-	UniqueID         string   `json:"unique_id"`
-	StateTopic       string   `json:"state_topic"`
-	CommandTopic     string   `json:"command_topic,omitempty"`
-	DeviceClass      string   `json:"device_class,omitempty"`
-	UnitOfMeasuremet string   `json:"unit_of_measurement,omitempty"`
-	Step             float64  `json:"step,omitempty"`
-	Min              float64  `json:"min,omitempty"`
-	Max              float64  `json:"max,omitempty"`
-	Mode             string   `json:"mode,omitempty"`
-	Options          []string `json:"options,omitempty"`
-	Device           struct {
+	Name              string   `json:"name"`
+	UniqueID          string   `json:"unique_id"`
+	StateTopic        string   `json:"state_topic"`
+	AvailabilityTopic string   `json:"availability_topic,omitempty"`
+	CommandTopic      string   `json:"command_topic,omitempty"`
+	DeviceClass       string   `json:"device_class,omitempty"`
+	UnitOfMeasuremet  string   `json:"unit_of_measurement,omitempty"`
+	Step              float64  `json:"step,omitempty"`
+	Min               float64  `json:"min,omitempty"`
+	Max               float64  `json:"max,omitempty"`
+	Mode              string   `json:"mode,omitempty"`
+	Options           []string `json:"options,omitempty"`
+	Device            struct {
 		Identifiers  []string `json:"identifiers"`
 		Name         string   `json:"name"`
 		Model        string   `json:"model,omitempty"`
@@ -32,6 +33,7 @@ type haAutoDiscoveryEntry struct {
 
 type haAutoDiscovery struct {
 	autoDiscoveryTopic string
+	availabilityTopic  string
 	stateTopic         string
 	setTopic           string
 	namePrefix         string
@@ -63,30 +65,25 @@ func (haad haAutoDiscovery) Get(name string, origName string, eType string, writ
 
 	adName := haad.namePrefix + normalizeName(name)
 
-	// some small optimizations
-	if haClass == "temperature" {
-		haUnit = "°C"
-	}
-	if haClass == "humidity" {
-		haUnit = "%"
-	}
-	if haClass == "pressure" {
-		haUnit = "Pa"
-	}
-	if haClass == "illuminance" {
-		haUnit = "lx"
-	}
-	if haClass == "power" {
-		haUnit = "W"
-	}
-	if haClass == "hour" || haClass == "hours" {
-		haUnit = "h"
-	}
-	if haClass == "minute" || haClass == "minutes" {
-		haUnit = "min"
-	}
-	if haClass == "second" || haClass == "seconds" {
-		haUnit = "s"
+	if haUnit == "" {
+		switch haClass {
+		case "temperature":
+			haUnit = "°C"
+		case "humidity":
+			haUnit = "%"
+		case "pressure":
+			haUnit = "Pa"
+		case "illuminance":
+			haUnit = "lx"
+		case "power":
+			haUnit = "W"
+		case "hour", "hours":
+			haUnit = "h"
+		case "minute", "minutes":
+			haUnit = "min"
+		case "second", "seconds":
+			haUnit = "s"
+		}
 	}
 
 	if haClass == "" && haUnit == "" {
@@ -120,11 +117,12 @@ func (haad haAutoDiscovery) Get(name string, origName string, eType string, writ
 	}
 
 	haadEntry := haAutoDiscoveryEntry{
-		DeviceClass:      haClass,
-		UnitOfMeasuremet: haUnit,
-		StateTopic:       haad.stateTopic + normalizeName(name),
-		UniqueID:         adName,
-		Name:             origName,
+		DeviceClass:       haClass,
+		UnitOfMeasuremet:  haUnit,
+		StateTopic:        haad.stateTopic + normalizeName(name),
+		AvailabilityTopic: haad.availabilityTopic,
+		UniqueID:          adName,
+		Name:              origName,
 		Device: struct {
 			Identifiers  []string `json:"identifiers"`
 			Name         string   `json:"name"`

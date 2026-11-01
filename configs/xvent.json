@@ -76,7 +76,7 @@
                     "x10": true
                 },
                 {
-                    "writable": true,
+                    "writable": false,
                     "type": "bits_const",
                     "position": 14,
                     "width": 2,
@@ -101,7 +101,7 @@
                     "x10": true
                 },
                 {
-                    "writable": true,
+                    "writable": false,
                     "type": "bits_const",
                     "position": 14,
                     "width": 2,

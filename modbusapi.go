@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ var (
 	errWritableNotFound    = errors.New("writible register not found")
 	errWritableInvalidType = errors.New("writible value doesn't suit register type")
 	errModbusDisconnected  = errors.New("modbus disconnected; waiting for reconnect")
+	errValueOutOfRange     = errors.New("value outside register range or precision")
 )
 
 type cbBool func(string, bool)
@@ -45,6 +47,9 @@ type modbusAPI struct {
 	oldValues_u16  map[string]uint16
 	oldValues_str  map[string]string
 	oldValues_bool map[string]bool
+	done           chan struct{}
+	wg             sync.WaitGroup
+	closeOnce      sync.Once
 }
 
 func normalizeName(name string) string {
@@ -68,8 +73,31 @@ func normalizeName(name string) string {
 
 }
 
-func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan time.Duration,
+func openModbusWithRetry(open func() error, attempts int, pause time.Duration) error {
+	if attempts < 1 {
+		return errors.New("modbus.startup-attempts must be at least 1")
+	}
+	for attempt := 1; ; attempt++ {
+		err := open()
+		if err == nil {
+			return nil
+		}
+		if attempt == attempts {
+			return fmt.Errorf("modbus startup connection failed after %d attempts: %w", attempts, err)
+		}
+		log.Printf("modbus startup connection attempt %d/%d failed: %v; retrying in %s", attempt, attempts, err, pause)
+		time.Sleep(pause)
+	}
+}
+
+func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan time.Duration, startupAttempts int,
 	CBU16 cbU16, CBStr cbStr, CBBool cbBool, CBRaw cbRaw) (*modbusAPI, error) {
+	if timeout <= 0 || scan <= 0 {
+		return nil, errors.New("modbus timeout and scan must be positive")
+	}
+	if err := config.prepareRegisters(); err != nil {
+		return nil, err
+	}
 
 	client, err := modbus.NewClient(&modbus.ClientConfiguration{
 		URL:     URL,
@@ -80,7 +108,7 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 		return nil, err
 	}
 
-	err = client.Open()
+	err = openModbusWithRetry(client.Open, startupAttempts, scan)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +123,7 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 		oldValues_u16:  map[string]uint16{},
 		oldValues_str:  map[string]string{},
 		oldValues_bool: map[string]bool{},
+		done:           make(chan struct{}),
 	}
 
 	for _, reg := range mapi.registers {
@@ -103,6 +132,9 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 		}
 		if reg.Type == "hold" {
 			for _, data := range reg.Data {
+				if !data.Writable {
+					continue
+				}
 				var RValues map[string]uint16
 
 				if len(data.Values) > 0 {
@@ -139,14 +171,13 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 		}
 	}
 
-	go mapi.loop(scan)
-
 	// create mqtt autodiscovery entries
-	if config.MQTT.HATopic != "" {
+	if config.MQTT.HATopic != "" && CBRaw != nil {
 
 		haAD := newAutoDiscovery(config.MQTT.HATopic, config.MQTT.HAPrefix,
 			config.MQTT.State_topic, config.MQTT.Set_topic,
 			config.MQTT.HAdevID, config.MQTT.HAdevName, config.MQTT.HAManu, config.MQTT.HAModel)
+		haAD.availabilityTopic = config.MQTT.Lwt_topic
 
 		for _, reg := range mapi.registers {
 			for _, data := range reg.Data {
@@ -183,7 +214,7 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 					}
 
 					topic, payload := haAD.Get(data.Name, data.origName, eType, data.Writable,
-						data.HAClass, data.HAType,
+						data.HAClass, data.HAUnit,
 						data.Values, data.ValueX10)
 					CBRaw(topic, payload)
 
@@ -193,7 +224,22 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 		}
 	}
 
+	mapi.wg.Add(1)
+	go func() {
+		defer mapi.wg.Done()
+		mapi.loop(scan)
+	}()
 	return mapi, nil
+}
+
+func (mapi *modbusAPI) Close() {
+	mapi.closeOnce.Do(func() {
+		close(mapi.done)
+		mapi.wg.Wait()
+		mapi.mu.Lock()
+		defer mapi.mu.Unlock()
+		mapi.client.Close()
+	})
 }
 
 func (mapi *modbusAPI) Set(name string, value string) error {
@@ -204,7 +250,7 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 	}
 
 	switch r.Type {
-	case "bit":
+	case "bit", "coil":
 		var (
 			v   bool
 			err error
@@ -218,64 +264,17 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 			if err != nil {
 				return err
 			}
+		}
+		if r.Type == "coil" {
+			return mapi.SetCoil(name, v)
 		}
 		return mapi.SetBit(name, v)
 	case "bits":
-		switch {
-		case !r.Signed && !r.X10:
-			v, err := strconv.ParseUint(value, 10, 16)
-			if err != nil {
-				return err
-			}
-			return mapi.SetBits(name, uint16(v))
-		case !r.Signed && r.X10:
-			v, err := strconv.ParseFloat(value, 64)
-			if err != nil {
-				return err
-			}
-			return mapi.SetBits(name, uint16(v*10))
-		case r.Signed && !r.X10:
-			v, err := strconv.ParseInt(value, 10, 16)
-			if err != nil {
-				return err
-			}
-			return mapi.SetBits(name, uint16(v))
-		case r.Signed && r.X10:
-			v, err := strconv.ParseFloat(value, 64)
-			if err != nil {
-				return err
-			}
-			return mapi.SetBits(name, uint16(v*10))
-		}
-
-		if r.X10 {
-			v, err := strconv.ParseFloat(value, 64)
-			if err != nil {
-				return err
-			}
-			return mapi.SetBits(name, uint16(v*10))
-		}
-		v, err := strconv.ParseUint(value, 10, 16)
+		v, err := r.parseValue(value)
 		if err != nil {
 			return err
 		}
-		return mapi.SetBits(name, uint16(v))
-	case "coil":
-		var (
-			v   bool
-			err error
-		)
-		if strings.ToLower(value) == "on" { // special case for HA
-			v = true
-		} else if strings.ToLower(value) == "off" { // special case for HA
-			v = false
-		} else {
-			v, err = strconv.ParseBool(value)
-			if err != nil {
-				return err
-			}
-		}
-		return mapi.SetCoil(name, v)
+		return mapi.SetBits(name, v)
 	case "bits_const":
 		v, ex := r.RValues[value]
 		if !ex {
@@ -291,6 +290,37 @@ func (mapi *modbusAPI) Set(name string, value string) error {
 	return errWritableInvalidType
 }
 
+func (r modbusWritable) limits() (int64, int64) {
+	if r.Signed {
+		return -(1 << (r.Width - 1)), (1 << (r.Width - 1)) - 1
+	}
+	return 0, (1 << r.Width) - 1
+}
+
+func (r modbusWritable) parseValue(value string) (uint16, error) {
+	if r.Width < 1 || r.Width > 16 {
+		return 0, errWritableInvalidType
+	}
+	if r.X10 {
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return 0, err
+		}
+		low, high := r.limits()
+		scaled := math.Round(v * 10)
+		if math.IsNaN(v) || math.IsInf(v, 0) || v < float64(low)/10 || v > float64(high)/10 || v != scaled/10 {
+			return 0, errValueOutOfRange
+		}
+		return uint16(int64(scaled)), nil
+	}
+	if r.Signed {
+		v, err := strconv.ParseInt(value, 10, r.Width)
+		return uint16(v), err
+	}
+	v, err := strconv.ParseUint(value, 10, r.Width)
+	return uint16(v), err
+}
+
 func (mapi *modbusAPI) SetCoil(name string, value bool) error {
 	mapi.mu.Lock()
 	defer mapi.mu.Unlock()
@@ -298,6 +328,9 @@ func (mapi *modbusAPI) SetCoil(name string, value bool) error {
 	r, ex := mapi.writables[name]
 	if !ex {
 		return errWritableNotFound
+	}
+	if r.Type != "coil" {
+		return errWritableInvalidType
 	}
 
 	if mapi.reconnect {
@@ -364,6 +397,26 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 	if r.Type != "bits" && r.Type != "bits_const" {
 		return errWritableInvalidType
 	}
+	if r.Width < 1 || r.Width > 16 {
+		return errWritableInvalidType
+	}
+	low, high := r.limits()
+	v := int64(value)
+	if r.Signed {
+		v = int64(int16(value))
+	}
+	if v < low || v > high {
+		return errValueOutOfRange
+	}
+	if r.Type == "bits_const" {
+		valid := false
+		for _, allowed := range r.RValues {
+			valid = valid || value == allowed
+		}
+		if !valid {
+			return errValueOutOfRange
+		}
+	}
 
 	if mapi.reconnect {
 		return errModbusDisconnected
@@ -396,29 +449,45 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 	return nil
 }
 
-// resend all values via callbacks on the next loop
-func (mapi *modbusAPI) Reload() {
-	mapi.mu.Lock()
-	defer mapi.mu.Unlock()
-
-	mapi.oldValues_bool = map[string]bool{}
-	mapi.oldValues_str = map[string]string{}
-	mapi.oldValues_u16 = map[string]uint16{}
+func isModbusException(err error) bool {
+	for _, exception := range []error{
+		modbus.ErrIllegalFunction, modbus.ErrIllegalDataAddress, modbus.ErrIllegalDataValue,
+		modbus.ErrServerDeviceFailure, modbus.ErrAcknowledge, modbus.ErrServerDeviceBusy,
+		modbus.ErrMemoryParityError, modbus.ErrGWPathUnavailable, modbus.ErrGWTargetFailedToRespond,
+	} {
+		if errors.Is(err, exception) {
+			return true
+		}
+	}
+	return false
 }
 
 // Called with mu held; discard the connection so late RTU replies cannot reach the next request.
 func (mapi *modbusAPI) connectionError(operation string, reg uint16, err error) error {
-	mapi.client.Close()
-	mapi.reconnect = true
+	if !isModbusException(err) {
+		mapi.client.Close()
+		mapi.reconnect = true
+	}
 	return fmt.Errorf("modbus %s at %d: %w", operation, reg, err)
 }
 
 func (mapi *modbusAPI) loop(scan time.Duration) {
 	for {
+		select {
+		case <-mapi.done:
+			return
+		default:
+		}
 		if err := mapi.poll(); err != nil {
 			log.Printf("%v; retrying in %s", err, scan)
 		}
-		time.Sleep(scan)
+		timer := time.NewTimer(scan)
+		select {
+		case <-mapi.done:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 	}
 }
 
@@ -434,22 +503,30 @@ func (mapi *modbusAPI) poll() error {
 		log.Println("modbus reconnected")
 	}
 
-	var err error
 	for regID, reg := range mapi.registers {
 		var reg16 uint16
-
-		switch reg.Type {
-		case "hold":
-			time.Sleep(*modbusPause)
-			reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.HOLDING_REGISTER)
-			if err != nil {
-				return mapi.connectionError("read holding register", reg.Reg, err)
+		needsRead := false
+		for _, data := range reg.Data {
+			needsRead = needsRead || !data.Daily || time.Since(data.last) >= 24*time.Hour
+		}
+		if !needsRead {
+			continue
+		}
+		if reg.Type == "hold" || reg.Type == "input" {
+			kind := modbus.HOLDING_REGISTER
+			if reg.Type == "input" {
+				kind = modbus.INPUT_REGISTER
 			}
-		case "input":
 			time.Sleep(*modbusPause)
-			reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.INPUT_REGISTER)
+			var err error
+			reg16, err = mapi.client.ReadRegister(reg.Reg, kind)
 			if err != nil {
-				return mapi.connectionError("read input register", reg.Reg, err)
+				err = mapi.connectionError("read "+reg.Type+" register", reg.Reg, err)
+				if isModbusException(err) {
+					log.Print(err)
+					continue
+				}
+				return err
 			}
 		}
 
@@ -474,18 +551,17 @@ func (mapi *modbusAPI) poll() error {
 				if o, e := mapi.oldValues_u16[data.Name]; o != v || !e {
 					mapi.oldValues_u16[data.Name] = v
 
-					switch {
-					case !data.ValueX10 && !data.Signed && mapi.cb_u16 != nil:
+					if !data.ValueX10 && !data.Signed && mapi.cb_u16 != nil {
 						mapi.cb_u16(data.Name, v)
-					case !data.ValueX10 && data.Signed && mapi.cb_str != nil:
-						mapi.cb_str(data.Name, fmt.Sprintf("%d", int16(v)))
-					case data.ValueX10 && !data.Signed && mapi.cb_str != nil:
-						mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
-					case data.ValueX10 && data.Signed && mapi.cb_str != nil:
-						if v > 32767 {
-							mapi.cb_str(data.Name, fmt.Sprintf("-%d.%d", -int16(v)/10, -int16(v)%10))
+					} else if (data.ValueX10 || data.Signed) && mapi.cb_str != nil {
+						n := int64(v)
+						if data.Signed && v&(uint16(1)<<(data.Width-1)) != 0 {
+							n -= 1 << data.Width
+						}
+						if data.ValueX10 {
+							mapi.cb_str(data.Name, strconv.FormatFloat(float64(n)/10, 'f', 1, 64))
 						} else {
-							mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
+							mapi.cb_str(data.Name, strconv.FormatInt(n, 10))
 						}
 					}
 
@@ -504,12 +580,19 @@ func (mapi *modbusAPI) poll() error {
 					time.Sleep(*modbusPause)
 					vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
 					if err != nil {
-						return mapi.connectionError("read coils", uint16(data.Pos), err)
+						err = mapi.connectionError("read coils", uint16(data.Pos), err)
+						if isModbusException(err) {
+							log.Print(err)
+							continue
+						}
+						return err
 					}
-					for i := uint16(data.Pos); i <= uint16(data.maxPos); i++ {
-						if o, e := mapi.oldValues_bool[normalizeName(data.Values[i])]; o != vls[i-uint16(data.Pos)] || !e {
-							mapi.oldValues_bool[normalizeName(data.Values[i])] = vls[i-uint16(data.Pos)]
-							mapi.cb_bool(normalizeName(data.Values[i]), vls[i-uint16(data.Pos)])
+					for addr, label := range data.Values {
+						name := normalizeName(label)
+						value := vls[int(addr)-data.Pos]
+						if old, exists := mapi.oldValues_bool[name]; old != value || !exists {
+							mapi.oldValues_bool[name] = value
+							mapi.cb_bool(name, value)
 						}
 					}
 				}
