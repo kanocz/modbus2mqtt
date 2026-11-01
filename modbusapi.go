@@ -15,6 +15,7 @@ import (
 var (
 	errWritableNotFound    = errors.New("writible register not found")
 	errWritableInvalidType = errors.New("writible value doesn't suit register type")
+	errModbusDisconnected  = errors.New("modbus disconnected; waiting for reconnect")
 )
 
 type cbBool func(string, bool)
@@ -35,6 +36,7 @@ type modbusWritable struct {
 type modbusAPI struct {
 	registers      []configStructRegisters
 	client         *modbus.ModbusClient
+	reconnect      bool
 	cb_u16         cbU16
 	cb_str         cbStr
 	cb_bool        cbBool
@@ -70,8 +72,8 @@ func NewModbusAPI(config configStruct, URL string, timeout time.Duration, scan t
 	CBU16 cbU16, CBStr cbStr, CBBool cbBool, CBRaw cbRaw) (*modbusAPI, error) {
 
 	client, err := modbus.NewClient(&modbus.ClientConfiguration{
-		URL:     *modbusEP,
-		Timeout: *modbusTimeout,
+		URL:     URL,
+		Timeout: timeout,
 	})
 
 	if err != nil {
@@ -298,9 +300,13 @@ func (mapi *modbusAPI) SetCoil(name string, value bool) error {
 		return errWritableNotFound
 	}
 
+	if mapi.reconnect {
+		return errModbusDisconnected
+	}
+	time.Sleep(*modbusPause)
 	err := mapi.client.WriteCoil(r.Reg, value)
 	if err != nil {
-		log.Panic("unable to write modbus coil: ", err)
+		return mapi.connectionError("write coil", r.Reg, err)
 	}
 
 	return nil
@@ -319,9 +325,13 @@ func (mapi *modbusAPI) SetBit(name string, value bool) error {
 		return errWritableInvalidType
 	}
 
+	if mapi.reconnect {
+		return errModbusDisconnected
+	}
+	time.Sleep(*modbusPause)
 	reg16, err := mapi.client.ReadRegister(r.Reg, modbus.HOLDING_REGISTER)
 	if err != nil {
-		log.Panic("unable to read modbus holding reg: ", err)
+		return mapi.connectionError("read holding register", r.Reg, err)
 	}
 	orig := reg16
 
@@ -332,9 +342,10 @@ func (mapi *modbusAPI) SetBit(name string, value bool) error {
 	}
 
 	if reg16 != orig {
+		time.Sleep(*modbusPause)
 		err = mapi.client.WriteRegisters(r.Reg, []uint16{reg16})
 		if err != nil {
-			log.Panic("unable to write modbus reg: ", err)
+			return mapi.connectionError("write register", r.Reg, err)
 		}
 	}
 
@@ -354,26 +365,31 @@ func (mapi *modbusAPI) SetBits(name string, value uint16) error {
 		return errWritableInvalidType
 	}
 
+	if mapi.reconnect {
+		return errModbusDisconnected
+	}
+	time.Sleep(*modbusPause)
 	if r.Pos == 0 && r.Width == 16 {
 		err := mapi.client.WriteRegisters(r.Reg, []uint16{value})
 		if err != nil {
-			log.Panic("unable to write modbus reg: ", err)
+			return mapi.connectionError("write register", r.Reg, err)
 		}
 		return nil
 	}
 
 	reg16, err := mapi.client.ReadRegister(r.Reg, modbus.HOLDING_REGISTER)
 	if err != nil {
-		log.Panic("unable to read modbus holding reg: ", err)
+		return mapi.connectionError("read holding register", r.Reg, err)
 	}
 	orig := reg16
 
 	reg16 = SetXBit(reg16, value, r.Pos, r.Width)
 
 	if reg16 != orig {
+		time.Sleep(*modbusPause)
 		err = mapi.client.WriteRegisters(r.Reg, []uint16{reg16})
 		if err != nil {
-			log.Panic("unable to write modbus reg: ", err)
+			return mapi.connectionError("write register", r.Reg, err)
 		}
 	}
 
@@ -390,127 +406,120 @@ func (mapi *modbusAPI) Reload() {
 	mapi.oldValues_u16 = map[string]uint16{}
 }
 
+// Called with mu held; discard the connection so late RTU replies cannot reach the next request.
+func (mapi *modbusAPI) connectionError(operation string, reg uint16, err error) error {
+	mapi.client.Close()
+	mapi.reconnect = true
+	return fmt.Errorf("modbus %s at %d: %w", operation, reg, err)
+}
+
 func (mapi *modbusAPI) loop(scan time.Duration) {
-
 	for {
-		func() {
-			mapi.mu.Lock()
-			defer mapi.mu.Unlock()
+		if err := mapi.poll(); err != nil {
+			log.Printf("%v; retrying in %s", err, scan)
+		}
+		time.Sleep(scan)
+	}
+}
 
+func (mapi *modbusAPI) poll() error {
+	mapi.mu.Lock()
+	defer mapi.mu.Unlock()
+
+	if mapi.reconnect {
+		if err := mapi.client.Open(); err != nil {
+			return fmt.Errorf("unable to reconnect modbus client: %w", err)
+		}
+		mapi.reconnect = false
+		log.Println("modbus reconnected")
+	}
+
+	var err error
+	for regID, reg := range mapi.registers {
+		var reg16 uint16
+
+		switch reg.Type {
+		case "hold":
 			time.Sleep(*modbusPause)
+			reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.HOLDING_REGISTER)
+			if err != nil {
+				return mapi.connectionError("read holding register", reg.Reg, err)
+			}
+		case "input":
+			time.Sleep(*modbusPause)
+			reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.INPUT_REGISTER)
+			if err != nil {
+				return mapi.connectionError("read input register", reg.Reg, err)
+			}
+		}
 
-			var err error
-			for regID, reg := range config.Registers {
-				var reg16 uint16
+		for dataID, data := range reg.Data {
 
-				switch reg.Type {
-				case "hold":
-					reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.HOLDING_REGISTER)
-					if err == modbus.ErrRequestTimedOut {
-						log.Println("modbus timeout")
-						mapi.client.Close()
-						err := mapi.client.Open()
-						if err != nil {
-							log.Panic("unable to open modbus client: ", err)
-						}
-						return
-					}
-					if err != nil {
-						log.Panic("unable to read modbus holding reg: ", err)
-					}
-				case "input":
-					reg16, err = mapi.client.ReadRegister(reg.Reg, modbus.INPUT_REGISTER)
-					if err == modbus.ErrRequestTimedOut {
-						log.Println("modbus timeout")
-						mapi.client.Close()
-						err := mapi.client.Open()
-						if err != nil {
-							log.Panic("unable to open modbus client: ", err)
-						}
-						return
-					}
-					if err != nil {
-						log.Panic("unable to read modbus input reg: ", err)
+			// check if we need to update this register
+			if data.Daily && time.Since(data.last) < time.Hour*24 {
+				continue
+			}
+
+			switch data.Type {
+			case "bit":
+				if mapi.cb_bool != nil {
+					v := GetBit(reg16, data.Pos)
+					if o, e := mapi.oldValues_bool[data.Name]; o != v || !e {
+						mapi.oldValues_bool[data.Name] = v
+						mapi.cb_bool(data.Name, v)
 					}
 				}
+			case "bits":
+				v := GetXBit(reg16, data.Pos, data.Width)
+				if o, e := mapi.oldValues_u16[data.Name]; o != v || !e {
+					mapi.oldValues_u16[data.Name] = v
 
-				for dataID, data := range reg.Data {
-
-					// check if we need to update this register
-					if data.Daily && time.Since(data.last) < time.Hour*24 {
-						continue
+					switch {
+					case !data.ValueX10 && !data.Signed && mapi.cb_u16 != nil:
+						mapi.cb_u16(data.Name, v)
+					case !data.ValueX10 && data.Signed && mapi.cb_str != nil:
+						mapi.cb_str(data.Name, fmt.Sprintf("%d", int16(v)))
+					case data.ValueX10 && !data.Signed && mapi.cb_str != nil:
+						mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
+					case data.ValueX10 && data.Signed && mapi.cb_str != nil:
+						if v > 32767 {
+							mapi.cb_str(data.Name, fmt.Sprintf("-%d.%d", -int16(v)/10, -int16(v)%10))
+						} else {
+							mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
+						}
 					}
 
-					switch data.Type {
-					case "bit":
-						if mapi.cb_bool != nil {
-							v := GetBit(reg16, data.Pos)
-							if o, e := mapi.oldValues_bool[data.Name]; o != v || !e {
-								mapi.oldValues_bool[data.Name] = v
-								mapi.cb_bool(data.Name, v)
-							}
+				}
+			case "bits_const":
+				if mapi.cb_str != nil {
+					if s, ok := data.Values[GetXBit(reg16, data.Pos, data.Width)]; ok {
+						if o, e := mapi.oldValues_str[data.Name]; o != s || !e {
+							mapi.oldValues_str[data.Name] = s
+							mapi.cb_str(data.Name, s)
 						}
-					case "bits":
-						v := GetXBit(reg16, data.Pos, data.Width)
-						if o, e := mapi.oldValues_u16[data.Name]; o != v || !e {
-							mapi.oldValues_u16[data.Name] = v
-
-							switch {
-							case !data.ValueX10 && !data.Signed && mapi.cb_u16 != nil:
-								mapi.cb_u16(data.Name, v)
-							case !data.ValueX10 && data.Signed && mapi.cb_str != nil:
-								mapi.cb_str(data.Name, fmt.Sprintf("%d", int16(v)))
-							case data.ValueX10 && !data.Signed && mapi.cb_str != nil:
-								mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", v/10, v%10))
-							case data.ValueX10 && data.Signed && mapi.cb_str != nil:
-								if v > 32767 {
-									mapi.cb_str(data.Name, fmt.Sprintf("-%d.%d", -int16(v)/10, -int16(v)%10))
-								} else {
-									mapi.cb_str(data.Name, fmt.Sprintf("%d.%d", int16(v)/10, int16(v)%10))
-								}
-							}
-
-						}
-					case "bits_const":
-						if mapi.cb_str != nil {
-							if s, ok := data.Values[GetXBit(reg16, data.Pos, data.Width)]; ok {
-								if o, e := mapi.oldValues_str[data.Name]; o != s || !e {
-									mapi.oldValues_str[data.Name] = s
-									mapi.cb_str(data.Name, s)
-								}
-							}
-						}
-					case "coils":
-						if mapi.cb_bool != nil {
-							vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
-							if err == modbus.ErrRequestTimedOut {
-								log.Println("modbus timeout")
-								mapi.client.Close()
-								err := mapi.client.Open()
-								if err != nil {
-									log.Panic("unable to open modbus client: ", err)
-								}
-								continue
-							}
-							if err != nil {
-								log.Panic("unable to read coils: ", err)
-							}
-							for i := uint16(data.Pos); i <= uint16(data.maxPos); i++ {
-								if o, e := mapi.oldValues_bool[normalizeName(data.Values[i])]; o != vls[i-uint16(data.Pos)] || !e {
-									mapi.oldValues_bool[normalizeName(data.Values[i])] = vls[i-uint16(data.Pos)]
-									mapi.cb_bool(normalizeName(data.Values[i]), vls[i-uint16(data.Pos)])
-								}
-							}
-						}
-
 					}
-
-					// update last time this register was updated
-					config.Registers[regID].Data[dataID].last = time.Now()
+				}
+			case "coils":
+				if mapi.cb_bool != nil {
+					time.Sleep(*modbusPause)
+					vls, err := mapi.client.ReadCoils(uint16(data.Pos), uint16(data.maxPos-data.Pos+1))
+					if err != nil {
+						return mapi.connectionError("read coils", uint16(data.Pos), err)
+					}
+					for i := uint16(data.Pos); i <= uint16(data.maxPos); i++ {
+						if o, e := mapi.oldValues_bool[normalizeName(data.Values[i])]; o != vls[i-uint16(data.Pos)] || !e {
+							mapi.oldValues_bool[normalizeName(data.Values[i])] = vls[i-uint16(data.Pos)]
+							mapi.cb_bool(normalizeName(data.Values[i]), vls[i-uint16(data.Pos)])
+						}
+					}
 				}
 
 			}
-		}()
-		time.Sleep(scan)
+
+			// update last time this register was updated
+			mapi.registers[regID].Data[dataID].last = time.Now()
+		}
+
 	}
+	return nil
 }
